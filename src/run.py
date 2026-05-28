@@ -32,7 +32,7 @@ APP_NAME = "eval_sentinel"
 USER_ID = "operator"
 
 TRIGGER = (
-    "An eval regression was detected on the support-tickets classifier. "
+    "An eval regression was detected on the smart-home command router. "
     "Investigate, root-cause, fix, and verify."
 )
 
@@ -89,7 +89,7 @@ def _render_tool_result(name: str, result) -> None:
     elif "failing" in result:
         n = len(result.get("failing", []))
         console.print(Text(
-            f"  ← root-cause evidence: {n} '{result.get('category')}' tickets failed, "
+            f"  ← root-cause evidence: {n} '{result.get('category')}' commands failed, "
             f"all misclassified as {result.get('misclassified_as')}", style="dim"))
 
     # verify_fix -> recovery table

@@ -16,7 +16,7 @@ from . import phoenix_ops as po
 
 
 def detect_regression() -> dict:
-    """Detect an eval regression on the support-tickets classifier by comparing
+    """Detect an eval regression on the smart-home command router by comparing
     the locked BASELINE experiment against the CURRENT (production) experiment.
 
     Returns a dict with:
@@ -34,19 +34,19 @@ def get_failing_examples(category: str) -> dict:
     can root-cause *why* it regressed (which wrong label it collapsed into).
 
     Args:
-      category: one of billing | account | technical | other
+      category: one of lights | climate | media | security | other
 
     Returns:
       {
         'category': str,
-        'failing': [{'ticket','expected','predicted'}],
+        'failing': [{'text','expected','predicted'}],
         'misclassified_as': {wrong_label: count},  # where the failures went
         'current_prompt': str,                      # the prompt under test
       }
     """
     current = po.experiment_scores(po.CURRENT_EXPERIMENT_ID)
     failing = [
-        {"ticket": e["ticket"], "expected": e["expected"], "predicted": e["predicted"]}
+        {"text": e["text"], "expected": e["expected"], "predicted": e["predicted"]}
         for e in current["examples"]
         if e["expected"] == category and not e["correct"]
     ]

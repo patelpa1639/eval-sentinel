@@ -27,9 +27,10 @@ from phoenix.client import Client
 from .seed import CATEGORIES, classify, exact_match, make_task
 
 # ── Frozen contract constants ───────────────────────────────────────────────
-DATASET = "support-tickets"
-BASELINE_EXPERIMENT_ID = "RXhwZXJpbWVudDox"
-CURRENT_EXPERIMENT_ID = "RXhwZXJpbWVudDoz"
+DATASET = "smart-home-commands"
+# Seeded by src/seed.py: baseline (100% all categories) vs current (climate 0%).
+BASELINE_EXPERIMENT_ID = "RXhwZXJpbWVudDo5"
+CURRENT_EXPERIMENT_ID = "RXhwZXJpbWVudDoxMA=="
 
 # A correctness floor: a category counts as "regressed" when its accuracy drops
 # by more than this many points relative to baseline. Mirrors RHODES' anomaly
@@ -45,14 +46,21 @@ def _dataset():
 
 
 def _example_truth(ds) -> dict:
-    """Map dataset_example_id -> {'ticket', 'expected'} for join with task_runs."""
+    """Map dataset_example_id -> {'text', 'expected'} for join with task_runs.
+
+    Domain-agnostic: grabs the single input value (e.g. 'command' or 'ticket')
+    without assuming a specific key name.
+    """
     truth = {}
     for ex in ds.examples:
         inp = ex.get("input") or {}
         out = ex.get("output") or {}
-        ticket = inp.get("ticket") if isinstance(inp, dict) else str(inp)
+        if isinstance(inp, dict):
+            text = next(iter(inp.values()), "") if inp else ""
+        else:
+            text = str(inp)
         expected = out.get("label") if isinstance(out, dict) else str(out)
-        truth[ex["id"]] = {"ticket": ticket, "expected": expected}
+        truth[ex["id"]] = {"text": text, "expected": expected}
     return truth
 
 
@@ -73,7 +81,7 @@ def _score_runs(task_runs, truth) -> dict:
         correct = 1.0 if predicted == str(expected).strip().lower() else 0.0
         examples.append(
             {
-                "ticket": t["ticket"],
+                "text": t["text"],
                 "expected": expected,
                 "predicted": predicted,
                 "correct": bool(correct),
