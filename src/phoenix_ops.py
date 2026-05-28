@@ -28,9 +28,12 @@ from .seed import CATEGORIES, classify, exact_match, make_task
 
 # ── Frozen contract constants ───────────────────────────────────────────────
 DATASET = "smart-home-commands"
-# Seeded by src/seed.py: baseline (100% all categories) vs current (climate 0%).
-BASELINE_EXPERIMENT_ID = "RXhwZXJpbWVudDo5"
-CURRENT_EXPERIMENT_ID = "RXhwZXJpbWVudDoxMA=="
+# Experiments are resolved dynamically BY TAG (not hardcoded ids), so the repo
+# is reproducible: anyone who runs `python -m src.seed` gets matching experiments
+# regardless of the ids their Phoenix instance assigns. The tags below match the
+# `prompt_version` the seeder writes into experiment metadata.
+BASELINE_VERSION_TAG = "baseline"  # -> seed writes prompt_version 'v1-baseline'
+CURRENT_VERSION_TAG = "current"    # -> seed writes prompt_version 'v2-current'
 
 # A correctness floor: a category counts as "regressed" when its accuracy drops
 # by more than this many points relative to baseline. Mirrors RHODES' anomaly
@@ -43,6 +46,46 @@ _PHX = Client(base_url=os.environ["PHOENIX_COLLECTOR_ENDPOINT"])
 # ── Private helpers ──────────────────────────────────────────────────────────
 def _dataset():
     return _PHX.datasets.get_dataset(dataset=DATASET)
+
+
+_resolved_ids: dict = {}
+
+
+def _resolve_experiment(version_tag: str) -> str:
+    """Resolve the most-recent experiment id whose metadata `prompt_version`
+    contains `version_tag`. Cached.
+
+    This is the reproducibility fix: ids are NOT hardcoded, so anyone who runs
+    `python -m src.seed` gets matching experiments regardless of the ids their
+    Phoenix instance assigns.
+    """
+    if version_tag in _resolved_ids:
+        return _resolved_ids[version_tag]
+    ds = _dataset()
+    matches = []
+    for e in _PHX.experiments.list(dataset_id=ds.id):
+        d = e if isinstance(e, dict) else e.__dict__
+        meta = d.get("metadata") or {}
+        if version_tag in str(meta.get("prompt_version", "")):
+            matches.append((str(d.get("created_at", "")), d.get("id")))
+    if not matches:
+        raise RuntimeError(
+            f"No experiment tagged '{version_tag}' on dataset '{DATASET}'. "
+            f"Run `python -m src.seed` first."
+        )
+    matches.sort(reverse=True)  # most recent wins
+    _resolved_ids[version_tag] = matches[0][1]
+    return _resolved_ids[version_tag]
+
+
+def baseline_experiment_id() -> str:
+    """Id of the locked baseline experiment (resolved by tag)."""
+    return _resolve_experiment(BASELINE_VERSION_TAG)
+
+
+def current_experiment_id() -> str:
+    """Id of the current/production experiment (resolved by tag)."""
+    return _resolve_experiment(CURRENT_VERSION_TAG)
 
 
 def _example_truth(ds) -> dict:

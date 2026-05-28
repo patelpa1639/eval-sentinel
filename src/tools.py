@@ -26,7 +26,7 @@ def detect_regression() -> dict:
       - current:  {overall, per_category, examples}
     Use this FIRST to confirm a regression exists and which categories fell.
     """
-    return po.compare(po.BASELINE_EXPERIMENT_ID, po.CURRENT_EXPERIMENT_ID)
+    return po.compare(po.baseline_experiment_id(), po.current_experiment_id())
 
 
 def get_failing_examples(category: str) -> dict:
@@ -44,7 +44,8 @@ def get_failing_examples(category: str) -> dict:
         'current_prompt': str,                      # the prompt under test
       }
     """
-    current = po.experiment_scores(po.CURRENT_EXPERIMENT_ID)
+    current_id = po.current_experiment_id()
+    current = po.experiment_scores(current_id)
     failing = [
         {"text": e["text"], "expected": e["expected"], "predicted": e["predicted"]}
         for e in current["examples"]
@@ -54,7 +55,7 @@ def get_failing_examples(category: str) -> dict:
     for f in failing:
         misclassified_as[f["predicted"]] = misclassified_as.get(f["predicted"], 0) + 1
 
-    exp = po._PHX.experiments.get_experiment(experiment_id=po.CURRENT_EXPERIMENT_ID)
+    exp = po._PHX.experiments.get_experiment(experiment_id=current_id)
     meta = exp.get("experiment_metadata") or {}
     return {
         "category": category,

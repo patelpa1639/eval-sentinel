@@ -47,14 +47,17 @@ if not os.environ.get("PHOENIX_API_KEY"):
     )
 
 
-BASELINE_ID = phoenix_ops.BASELINE_EXPERIMENT_ID
-CURRENT_ID = phoenix_ops.CURRENT_EXPERIMENT_ID
+BASELINE_ID = phoenix_ops.baseline_experiment_id()
+CURRENT_ID = phoenix_ops.current_experiment_id()
 
 
 def test_contract_constants():
+    # Dataset is fixed; experiment ids are resolved dynamically by tag (no
+    # hardcoded ids), so just assert they resolve to distinct, non-empty ids.
     assert phoenix_ops.DATASET == "smart-home-commands"
-    assert phoenix_ops.BASELINE_EXPERIMENT_ID == "RXhwZXJpbWVudDo5"
-    assert phoenix_ops.CURRENT_EXPERIMENT_ID == "RXhwZXJpbWVudDoxMA=="
+    assert isinstance(BASELINE_ID, str) and BASELINE_ID
+    assert isinstance(CURRENT_ID, str) and CURRENT_ID
+    assert BASELINE_ID != CURRENT_ID
 
 
 def _assert_scores_shape(scores):
