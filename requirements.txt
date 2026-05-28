@@ -3,6 +3,7 @@ mcp
 arize-phoenix-client
 google-genai
 python-dotenv
+rich
 
 # --- deployment to Vertex AI Agent Engine (see deployment/deploy.py) ---
 # Provides the `vertexai` client + AdkApp wrapper + GCS staging client.
