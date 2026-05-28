@@ -80,8 +80,16 @@ REQUIREMENTS = [
 ]
 
 # Ship the local `src/` package as extra source so `from src.agent import
-# root_agent` resolves inside the deployed runtime.
-EXTRA_PACKAGES = ["src"]
+# root_agent` resolves inside the deployed runtime. We also ship the
+# `installation_scripts/` dir (build-time Node install — see below).
+EXTRA_PACKAGES = ["src", "installation_scripts"]
+
+# Build-time installation scripts (run as root during image build). The Phoenix
+# MCP server launches via `npx`, which needs Node.js; install_node.sh installs
+# it so the MCP integration works in the cloud runtime, not just locally.
+# Contract (Vertex SDK): scripts live in the `installation_scripts/` subdir and
+# their paths are listed both here and in EXTRA_PACKAGES.
+INSTALLATION_SCRIPTS = ["installation_scripts/install_node.sh"]
 
 # Env vars forwarded into the deployed runtime. Pulled from .env at deploy time.
 # NOTE: PHOENIX_API_KEY is forwarded but NEVER logged by this script.
@@ -167,6 +175,7 @@ def _print_config() -> None:
     print(f"  staging bucket   : gs://{STAGING_BUCKET}")
     print(f"  display_name     : {DISPLAY_NAME}")
     print(f"  extra_packages   : {EXTRA_PACKAGES}")
+    print(f"  install scripts  : {INSTALLATION_SCRIPTS}  (Node for the Phoenix MCP)")
     print(f"  requirements     : {REQUIREMENTS}")
     print("  env_vars         :")
     for k, v in env_vars.items():
@@ -196,6 +205,13 @@ def dry_run() -> int:
 
     print("\n[3/3] Checking config + staging bucket ...")
     _print_config()
+    # Validate the build-time install scripts exist (shipped via extra_packages).
+    for rel in INSTALLATION_SCRIPTS:
+        p = PROJECT_ROOT / rel
+        if p.exists():
+            print(f"  [ok] install script present: {rel}")
+        else:
+            print(f"  [WARN] install script MISSING: {rel} (Phoenix MCP won't run in-cloud)")
     print()
     bucket_ok = _check_bucket(create=False)
 
@@ -237,6 +253,8 @@ def deploy() -> int:
             extra_packages=EXTRA_PACKAGES,
             staging_bucket=f"gs://{STAGING_BUCKET}",
             env_vars=_collect_env_vars(),
+            # Install Node at build time so the Phoenix MCP (npx) runs in-cloud.
+            build_options={"installation_scripts": INSTALLATION_SCRIPTS},
         ),
     )
     name = agent_engine.api_resource.name
