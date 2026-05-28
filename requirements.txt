@@ -1,4 +1,13 @@
 google-adk
 mcp
 arize-phoenix-client
+google-genai
 python-dotenv
+
+# --- deployment to Vertex AI Agent Engine (see deployment/deploy.py) ---
+# Provides the `vertexai` client + AdkApp wrapper + GCS staging client.
+google-cloud-aiplatform[agent_engines]
+
+# --- test dependencies ---
+pytest
+pytest-asyncio
