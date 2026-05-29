@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: theme('colors.bg');
+  color: #e6e6e9;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tight, dense scrollbars in the timeline */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+@layer utilities {
+  /* Bar fill transition (regressed -> healed) */
+  .bar-fill {
+    transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.5s ease;
+  }
+}

@@ -1,0 +1,6 @@
+# Eval Sentinel web backend (FastAPI service).
+# Installed on top of the project-root requirements.txt (which provides
+# google-adk, mcp, arize-phoenix-client, google-genai, python-dotenv, etc.).
+fastapi
+uvicorn[standard]
+sse-starlette
