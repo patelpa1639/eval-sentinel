@@ -4,6 +4,10 @@
 **Stack:** Agent Development Kit (ADK, Python) · Gemini 3 (`gemini-3.5-flash`) ·
 Arize Phoenix MCP server · deployed to Vertex AI Agent Engine.
 
+**Repo:** https://github.com/patelpa1639/eval-sentinel
+**Deployed agent:** `projects/rapid-agent-497721/locations/us-central1/reasoningEngines/9188304762754301952`
+([Vertex AI Agent Engine console](https://console.cloud.google.com/vertex-ai/agents/agent-engines/locations/us-central1/agent-engines/9188304762754301952?project=rapid-agent-497721))
+
 ---
 
 ## Inspiration

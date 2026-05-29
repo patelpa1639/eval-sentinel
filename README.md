@@ -111,6 +111,12 @@ regressions.
 - [`docs/DEMO.md`](docs/DEMO.md) — ≤3-minute video storyboard, shot list, recording tips.
 - [`docs/SUBMISSION.md`](docs/SUBMISSION.md) — Devpost writeup + judging-criteria mapping.
 
+## Links
+
+- **Repo:** https://github.com/patelpa1639/eval-sentinel
+- **Deployed agent (Vertex AI Agent Engine):** `projects/rapid-agent-497721/locations/us-central1/reasoningEngines/9188304762754301952`
+  ([Console](https://console.cloud.google.com/vertex-ai/agents/agent-engines/locations/us-central1/agent-engines/9188304762754301952?project=rapid-agent-497721))
+
 ## Hackathon
 
 - Event: https://rapid-agent.devpost.com/  · Track: Arize · Deadline: Jun 11, 2026 2pm PDT
