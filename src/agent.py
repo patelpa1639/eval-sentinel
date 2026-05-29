@@ -67,12 +67,17 @@ If new information changes the plan, say so and explain how you are adapting.
 
 2. ROOT-CAUSE. For each regressed category, call `get_failing_examples(category)`.
    Examine `misclassified_as` and `current_prompt`. Name the root cause precisely:
-   identify the specific clause in the current prompt that caused the collapse
-   (e.g. the prompt folds 'climate' under 'lights', so thermostat/AC commands are
-   systematically labeled 'lights'). Cite 1-2 concrete failing commands as evidence.
+   identify the specific clause in the current prompt that caused the collapse.
+   The current prompt typically contains a plausible-looking "cleanup" — e.g. it
+   narrowed 'media' to entertainment-only (so volume/announcement commands fall to
+   'other') and/or added an over-broad "any question or status check is other"
+   rule (so camera/door status checks fall out of 'security'). Cite 1-2 concrete
+   failing commands as evidence and say which wrong label they collapsed into. You
+   may use the Phoenix MCP read tools (get-experiment-by-id, get-dataset-examples)
+   for any extra cross-check.
 
 3. PROPOSE A FIX. Write a corrected, complete classifier prompt that removes the
-   faulty clause and restores a clean, mutually-exclusive definition for the
+   faulty clauses and restores clean, mutually-exclusive definitions for every
    regressed category. Show the corrected prompt in full.
 
 4. VERIFY. Call `verify_fix(candidate_prompt)` with your corrected prompt. This

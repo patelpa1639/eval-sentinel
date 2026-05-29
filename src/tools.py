@@ -5,14 +5,27 @@ wrappers the agent calls during its detect -> root-cause -> verify loop.
 Each returns plain JSON-serializable dicts so the agent can reason over them.
 
   detect_regression()        -> RHODES anomaly detection (compare baseline/current)
-  get_failing_examples(cat)  -> RHODES RCAAnalyzer evidence (failing spans/rows)
+  get_failing_examples(cat)  -> RHODES RCAAnalyzer evidence (failing rows)
   verify_fix(candidate)      -> RHODES "is the host healthy after the heal?"
                                 (re-runs the real eval, confirms recovery)
+
+Reads (detect / get_failing_examples) flow through the Phoenix MCP server via
+the phoenix_ops layer; only verify_fix performs an SDK write (run a new
+experiment), since MCP is read-only.
 """
+
+import threading
 
 from google.adk.tools import FunctionTool
 
 from . import phoenix_ops as po
+
+# HARD cap on how many REAL verification experiments this process may run, to
+# bound cost and runaway agent loops. Each verify_fix() runs the full dataset
+# through the model, so we cap it. Thread-safe counter.
+_MAX_VERIFY_RUNS = 3
+_verify_runs = 0
+_verify_lock = threading.Lock()
 
 
 def detect_regression() -> dict:
@@ -55,8 +68,8 @@ def get_failing_examples(category: str) -> dict:
     for f in failing:
         misclassified_as[f["predicted"]] = misclassified_as.get(f["predicted"], 0) + 1
 
-    exp = po._PHX.experiments.get_experiment(experiment_id=current_id)
-    meta = exp.get("experiment_metadata") or {}
+    # Prompt metadata is fetched over the Phoenix MCP server (get-experiment-by-id).
+    meta = po.experiment_metadata(current_id)
     return {
         "category": category,
         "failing": failing,
@@ -70,6 +83,12 @@ def verify_fix(candidate_prompt: str) -> dict:
     dataset and re-scoring it — the eval-domain equivalent of confirming a host
     is healthy after a heal. Call this AFTER you have proposed a corrected prompt.
 
+    The candidate is run with the SAME strong baseline model (the regression is a
+    prompt issue, so the fix is a prompt revert, re-evaluated on the same model).
+
+    A HARD cap of 3 real verification runs per process bounds cost / runaway
+    loops; beyond that this returns an error dict instead of running.
+
     Args:
       candidate_prompt: the full corrected classifier prompt to test.
 
@@ -78,6 +97,21 @@ def verify_fix(candidate_prompt: str) -> dict:
     Compare these recovered scores against detect_regression()'s baseline to
     confirm the fix restored the regressed categories.
     """
+    global _verify_runs
+    with _verify_lock:
+        if _verify_runs >= _MAX_VERIFY_RUNS:
+            return {
+                "error": (
+                    f"verify_fix run limit reached ({_MAX_VERIFY_RUNS} real "
+                    "verification experiments per process). Refusing to run "
+                    "another experiment to bound cost and avoid runaway loops. "
+                    "Settle on a candidate prompt and report your conclusion."
+                ),
+                "runs_used": _verify_runs,
+                "max_runs": _MAX_VERIFY_RUNS,
+            }
+        _verify_runs += 1
+
     return po.run_candidate(candidate_prompt, name="classifier-fix")
 
 

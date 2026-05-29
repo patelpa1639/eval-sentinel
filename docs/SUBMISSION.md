@@ -2,7 +2,7 @@
 
 **Event:** Google Cloud Rapid Agent Hackathon · **Track:** Arize
 **Stack:** Agent Development Kit (ADK, Python) · Gemini 3 (`gemini-3.5-flash`) ·
-Arize Phoenix MCP server (27 tools) · deployed to Vertex AI Agent Engine.
+Arize Phoenix MCP server · deployed to Vertex AI Agent Engine.
 
 ---
 
@@ -21,8 +21,8 @@ model or a prompt.
 We'd already built an autonomous agent that solves this shape of problem for
 infrastructure — detect an incident, find the root cause, apply a fix, verify it
 recovered, with an approval gate before anything irreversible. LLM-eval
-regressions are the same shape. So we re-pointed that proven detect → root-cause
-→ fix → verify loop at AI quality and gave it Arize Phoenix as its senses,
+regressions are the same shape. So we re-pointed that detect → root-cause →
+fix → verify loop at AI quality and gave it Arize Phoenix as its senses,
 aiming it squarely at the self-hosted / local-LLM crowd that has nothing today.
 
 ## What it does
@@ -38,20 +38,19 @@ media, security, other) evaluated in Arize Phoenix on a 25-example
 
 1. **Plan + detect.** The agent first states an explicit plan, then pulls the
    current and baseline experiments through Phoenix and compares them category by
-   category. In the demo, a shipped prompt edit took overall accuracy from
-   **100% → 80%**, with **climate collapsing from 100% → 0%** while every other
-   category stayed at 100%. The agent isolates that drop on its own — no
-   hard-coded threshold.
-2. **Root-cause.** It opens the failing climate commands, sees they're all
-   mislabeled as "lights," reads the prompt attached to the current experiment,
-   and pins the cause: the prompt was rewritten to fold climate control *under*
-   lights, restricting `climate` to whole-home HVAC installation requests only.
-   It cites concrete failing commands (e.g. "set the thermostat to 68 degrees").
-3. **Fix.** It proposes a corrected prompt that re-separates climate as its own
-   mutually-exclusive category, citing the eval evidence it relied on.
-4. **Verify.** It runs a real new evaluation experiment through Phoenix and
-   confirms climate recovers to **~100%** and overall returns to 100% — then
-   reports the before/after.
+   category. In the demo, a subtle prompt "cleanup" takes overall accuracy from
+   **100% → 84%**, with the dip concentrated in two categories (media and security,
+   each 100% → 60%) that the average barely reflects. The agent isolates the
+   affected categories on its own — no hard-coded threshold.
+2. **Root-cause.** It opens the failing commands, sees how they're being
+   misclassified, reads the prompt attached to the current experiment, and pins
+   the cause from the evidence. It cites concrete failing commands (e.g. "turn up
+   the volume in the office", which the regressed prompt misroutes to "other").
+3. **Fix.** It proposes a corrected prompt that addresses the diagnosed cause,
+   citing the eval evidence it relied on.
+4. **Verify.** It runs a real new evaluation experiment via the Phoenix client,
+   reads the result back through MCP, and confirms the affected categories
+   recover (overall returns to **100%**) — then reports the before/after.
 
 A **postmortem** summarizes the recovery, and an **approval gate** guards
 promoting the fixed prompt to production; everything up to that point is
@@ -71,20 +70,21 @@ experiments are also visible in the Phoenix UI.
   Vertex AI. It does the comparison, the diagnosis, the prompt rewrite, and the
   before/after summary.
 - **Arize Phoenix MCP server** is wired into ADK as an `McpToolset` (stdio via
-  `npx @arizeai/phoenix-mcp`), exposing 27 tools for datasets, experiments,
-  traces, and evals. This is the agent's entire sensory and action surface — it
-  reads experiments, inspects failing examples, and re-runs evals all through
-  Phoenix.
+  `npx @arizeai/phoenix-mcp`), exposing tools for datasets, experiments,
+  traces, and evals. The agent **senses and investigates** through Phoenix — it
+  reads experiments, inspects failing examples, and pulls spans and datasets.
+  Its verification step runs a real re-evaluation via the Phoenix client and
+  reads the result back through MCP.
 - **Vertex AI Agent Engine** is the deploy target for running the agent as a
   managed service.
-- The architecture is built on a **proven autonomous-healing design** we
-  developed for infrastructure incidents; Eval Sentinel is that design
-  generalized to LLM-eval quality.
+- The architecture follows the same **detect → heal → verify** pattern as our
+  infrastructure agent, Rhodes; Eval Sentinel applies that pattern to LLM-eval
+  quality.
 
 A seed script (`python -m src.seed`) plants the demo: it creates the dataset and
-runs two experiments — a baseline prompt (100%) and a regressed prompt that folds
-climate under lights (80%, climate 0%) — giving the agent a real, explainable
-regression to work on.
+runs two experiments — a baseline prompt (100% overall) and a regressed variant
+(84% overall, with media and security at 60%) — giving the agent a real,
+explainable regression to work on.
 
 ## Challenges
 
@@ -92,9 +92,12 @@ regression to work on.
   server mounted as an ADK toolset (stdio transport, env passthrough for the
   Phoenix host + key) took iteration against the installed `google-adk` version.
 - **Making the regression real, not staged.** The planted bug had to be a
-  genuine, explainable misconfiguration — folding climate control under lights —
-  so the agent's root-cause is a true diagnosis from evidence, not a guess at a
-  label we secretly handed it.
+  genuine, explainable misconfiguration — a subtle prompt "cleanup" that narrowed
+  "media" to entertainment-only and over-broadened the "other" catch-all, quietly
+  sinking media and security — so the agent's root-cause is a true diagnosis from
+  evidence, not a guess at a label we handed it. (We first tried a model swap, but
+  every available Gemini model aced the task; the subtle prompt change was the
+  realistic regression that actually reproduced.)
 - **Verification, not just claims.** The hard part of an autonomous fix is
   proving it worked. We made the agent run an actual new Phoenix eval experiment
   rather than trust its own edit.
@@ -106,16 +109,16 @@ regression to work on.
 
 - A genuinely autonomous closed loop: detect, root-cause, fix, and **verify** an
   LLM-eval regression with no human in the middle until the approval gate.
-- An **organic** Arize integration — the agent has no job *except* reasoning over
-  Phoenix eval and trace data; the MCP server is its senses and hands, not a
-  bolt-on.
+- A deep Arize integration — the agent's job is reasoning over Phoenix eval and
+  trace data; it senses and investigates through the MCP server and verifies
+  via the Phoenix client, rather than treating Phoenix as a bolt-on.
 - A real, underserved audience: self-hosters running local LLMs have no quality
   tooling today, and this gives them an autonomous watchdog for free.
-- A crisp, reproducible demo with concrete numbers (100% → 80%, climate 100% →
-  0% → ~100%) anyone can re-run from a seed script, rendered in a polished
-  `rich` terminal UI.
-- Reuse of a battle-tested autonomous-healing architecture, generalized cleanly
-  from infrastructure to AI quality.
+- A reproducible demo (overall 100% → 84%, with media and security dipping to 60%
+  and recovering to 100%) anyone can re-run from a seed script, rendered
+  in a polished `rich` terminal UI.
+- Reuse of the same detect → heal → verify pattern as our infrastructure agent,
+  generalized from infrastructure to AI quality.
 
 ## What's next
 
@@ -136,12 +139,12 @@ regression to work on.
 ## How this maps to the judging criteria
 
 **Technological Implementation.**
-A real ADK agent on Gemini 3 with the Arize Phoenix MCP server (27 tools) mounted
-as its toolset, deployable to Vertex AI Agent Engine. The detect → root-cause →
-fix → verify loop is driven by model reasoning over live eval data, and the fix
-is verified by running an actual new Phoenix experiment — not asserted. The
-Phoenix MCP integration is the core of the system, exercising the partner stack
-deeply rather than superficially.
+A real ADK agent on Gemini 3 with the Arize Phoenix MCP server mounted as its
+toolset, deployable to Vertex AI Agent Engine. The detect → root-cause → fix →
+verify loop is driven by model reasoning over live eval data, and the fix is
+verified by running an actual new Phoenix experiment — not asserted. The agent
+senses and investigates through Phoenix MCP and verifies via the Phoenix client,
+exercising the partner stack deeply rather than superficially.
 
 **Design.**
 A tight, legible closed loop with a clear safety boundary: fully autonomous
@@ -160,10 +163,10 @@ explains them, and proves a fix addresses a real, unmet operational pain — and
 the same loop scales straight to production LLM teams.
 
 **Quality of the Idea.**
-The differentiator is the *organic* Arize integration: Eval Sentinel's entire job
-is reasoning over Phoenix eval/trace data, so the partner tooling is the
-substance of the agent, not decoration. The local-LLM framing — a Gemini-3 agent
-that keeps your local LLM healthy — gives it a sharp, underserved audience. It
-targets the thinner-field **Arize track**, and it's grounded in a proven
-autonomous-healing architecture rather than a from-scratch concept — credible,
-not hypothetical.
+The differentiator is the depth of the Arize integration: Eval Sentinel's job is
+reasoning over Phoenix eval/trace data, so the partner tooling is the substance
+of the agent, not decoration. The local-LLM framing — a Gemini-3 agent that
+keeps your local LLM healthy — gives it a sharp, underserved audience. It targets
+the thinner-field **Arize track**, and it reuses the same detect → heal → verify
+pattern as our infrastructure agent rather than a from-scratch concept —
+credible, not hypothetical.

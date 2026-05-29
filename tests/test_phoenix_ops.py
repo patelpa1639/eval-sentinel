@@ -1,11 +1,12 @@
 """Integration tests for src/phoenix_ops.py.
 
-These hit live Arize Phoenix read-only (the seeded `smart-home-commands` dataset
-and its baseline/current experiments). They are written to the FROZEN CONTRACT:
+These hit live Arize Phoenix READ-ONLY through the Phoenix MCP server (the
+sensing/investigation path) against the seeded `smart-home-commands` dataset and
+its baseline/current experiments. They are written to the FROZEN CONTRACT:
 
     DATASET = "smart-home-commands"
-    BASELINE_EXPERIMENT_ID = "RXhwZXJpbWVudDo5"     # 100% all categories
-    CURRENT_EXPERIMENT_ID  = "RXhwZXJpbWVudDoxMA=="  # 80% overall, climate 0%
+    # Experiment ids are resolved dynamically by metadata `prompt_version` tag
+    # ('baseline' / 'current') — NOT hardcoded — so the suite is reproducible.
 
     experiment_scores(experiment_id) -> {
         'overall': float,
@@ -19,8 +20,13 @@ and its baseline/current experiments). They are written to the FROZEN CONTRACT:
         'current': {...},
     }
 
+The seeded regression is a SUBTLE, plausible prompt "cleanup" (same model) that
+narrows `media` to entertainment-only and adds an over-broad "any question/status
+check is other" rule. Empirically this sinks the media + security categories
+(each ~60%) for an overall ~84%, while lights/climate/other stay ~100%.
+
 Assertions are deliberately tolerant (ranges, not exact floats) so the suite
-stays green across minor seed/eval noise.
+stays green across minor eval noise.
 
 If src/phoenix_ops.py does not yet exist (it is being written in parallel),
 `pytest.importorskip` skips this module rather than hard-crashing collection.
@@ -71,33 +77,67 @@ def _assert_scores_shape(scores):
         assert {"text", "expected", "predicted", "correct"} <= set(ex.keys())
 
 
-def test_baseline_scores_all_perfect():
+def test_baseline_scores_all_strong():
     scores = phoenix_ops.experiment_scores(BASELINE_ID)
     _assert_scores_shape(scores)
-    # Baseline is seeded at 100% across the board.
-    assert scores["overall"] >= 99.0, scores["overall"]
-    assert scores["per_category"].get("climate") == pytest.approx(100, abs=0.5)
+    # Baseline (well-scoped prompt, strong model) is seeded near-perfect.
+    assert scores["overall"] >= 96.0, scores["overall"]
+    for cat in ("lights", "climate", "media", "security", "other"):
+        assert scores["per_category"].get(cat) >= 90.0, (cat, scores["per_category"].get(cat))
 
 
-def test_current_scores_climate_regressed():
+def test_current_scores_media_and_security_regressed():
     scores = phoenix_ops.experiment_scores(CURRENT_ID)
     _assert_scores_shape(scores)
-    # Current run: ~80% overall, climate dropped to 0, others still 100.
-    assert 72.0 <= scores["overall"] <= 88.0, scores["overall"]
+    # Current run: ~84% overall; the subtle prompt cleanup sinks media + security
+    # while lights/climate/other stay strong.
+    assert 72.0 <= scores["overall"] <= 90.0, scores["overall"]
     per_cat = scores["per_category"]
-    assert per_cat.get("climate") == pytest.approx(0, abs=0.5)
-    for cat in ("lights", "media", "security", "other"):
-        assert per_cat.get(cat) == pytest.approx(100, abs=0.5), (cat, per_cat.get(cat))
+    assert per_cat.get("media") <= 80.0, per_cat.get("media")
+    assert per_cat.get("security") <= 80.0, per_cat.get("security")
+    for cat in ("lights", "climate", "other"):
+        assert per_cat.get(cat) >= 90.0, (cat, per_cat.get(cat))
 
 
-def test_compare_flags_climate_regression():
+def test_compare_flags_media_security_regression():
     result = phoenix_ops.compare(BASELINE_ID, CURRENT_ID)
     assert isinstance(result, dict)
     assert {"overall_delta", "regressed_categories", "baseline", "current"} <= set(
         result.keys()
     )
-    # Climate went 100 -> 0, so it must show up as regressed.
-    assert "climate" in result["regressed_categories"]
-    # Overall dropped ~20 points; delta should be clearly negative.
+    # Media and security both dropped well past the threshold.
+    assert "media" in result["regressed_categories"]
+    assert "security" in result["regressed_categories"]
+    # Lights/climate/other should NOT be flagged.
+    for cat in ("lights", "climate", "other"):
+        assert cat not in result["regressed_categories"], cat
+    # Overall dropped clearly; delta should be solidly negative.
     assert result["overall_delta"] < 0
-    assert -30.0 <= result["overall_delta"] <= -12.0, result["overall_delta"]
+    assert -30.0 <= result["overall_delta"] <= -8.0, result["overall_delta"]
+
+
+def test_resolve_tolerates_experiment_metadata_key():
+    # _meta_prompt_version must read prompt_version from BOTH the SDK `metadata`
+    # shape and the MCP/REST `experiment_metadata` shape (and nested forms).
+    f = phoenix_ops._meta_prompt_version
+    assert f({"prompt_version": "v2-current"}) == "v2-current"
+    assert f({"metadata": {"prompt_version": "v1-baseline"}}) == "v1-baseline"
+    assert f({"experiment_metadata": {"prompt_version": "v9-x"}}) == "v9-x"
+    assert f({}) == ""
+
+
+def test_verify_fix_run_cap():
+    # The hard cap on real verification runs must be enforced by tools.verify_fix.
+    from src import tools
+
+    assert tools._MAX_VERIFY_RUNS >= 1
+    # Simulate exhausting the budget without running real experiments.
+    saved = tools._verify_runs
+    try:
+        tools._verify_runs = tools._MAX_VERIFY_RUNS
+        out = tools.verify_fix("any prompt")
+        assert isinstance(out, dict)
+        assert "error" in out
+        assert out.get("max_runs") == tools._MAX_VERIFY_RUNS
+    finally:
+        tools._verify_runs = saved
