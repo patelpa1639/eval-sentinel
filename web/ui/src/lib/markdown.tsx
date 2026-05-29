@@ -22,7 +22,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
         return (
           <code
             key={key}
-            className="font-mono text-[0.85em] text-accent bg-elevated px-1 py-0.5 rounded"
+            className="font-mono text-[0.85em] text-accent-bright bg-elevated border border-hairline px-1.5 py-0.5 rounded"
           >
             {tok.slice(1, -1)}
           </code>

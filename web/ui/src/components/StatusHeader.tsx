@@ -5,92 +5,100 @@ interface Props {
   runState: RunState;
 }
 
-const PILL: Record<
-  RunState,
-  { label: string; glyph: string; cls: string; dot: string }
-> = {
-  healthy: {
-    label: 'Healthy',
-    glyph: '',
-    cls: 'text-ok border-ok/30 bg-ok/5',
-    dot: 'bg-ok',
-  },
-  regression: {
-    label: 'Regression detected',
-    glyph: '⚠',
-    cls: 'text-regress border-regress/40 bg-regress/5',
-    dot: 'bg-regress',
-  },
-  healing: {
-    label: 'Healing…',
-    glyph: '',
-    cls: 'text-progress border-progress/40 bg-progress/5',
-    dot: 'bg-progress animate-pulseSoft',
-  },
-  healed: {
-    label: 'Healed',
-    glyph: '✓',
-    cls: 'text-ok border-ok/40 bg-ok/5',
-    dot: 'bg-ok',
-  },
-};
-
 export function StatusHeader({ state, runState }: Props) {
-  const pill = PILL[runState];
-  // Overall to show: baseline when healthy, healed (100) when healed, else current.
+  // Overall to show: baseline when healthy, restored (100) when healed, else current.
   const overall =
-    runState === 'healthy'
+    runState === 'healthy' || runState === 'healed'
       ? state.baseline.overall
-      : runState === 'healed'
-        ? state.baseline.overall
-        : state.current.overall;
+      : state.current.overall;
   const delta = overall - state.baseline.overall;
 
+  const headline =
+    runState === 'regression'
+      ? `${state.regressed_categories.length} categories regressed`
+      : runState === 'healing'
+        ? 'Diagnosing and verifying a fix'
+        : runState === 'healed'
+          ? 'Fix verified — restored to baseline'
+          : 'All categories at baseline';
+
   return (
-    <header className="border-b border-zinc-800 pb-4 mb-5">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="h-7 w-7 rounded-sm border border-zinc-700 grid place-items-center bg-elevated">
-            <span className="text-accent font-mono text-sm font-semibold">ES</span>
+    <header>
+      <div className="flex items-end justify-between gap-6 flex-wrap">
+        <div>
+          <div className="label mb-2.5">Overall accuracy</div>
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-[2.75rem] leading-none font-semibold text-ink tabular-nums tracking-tight">
+              {overall}
+              <span className="text-zinc-500 text-2xl font-medium">%</span>
+            </span>
+            <DeltaPill delta={delta} runState={runState} />
           </div>
-          <div>
-            <h1 className="text-zinc-100 font-semibold text-base tracking-tight leading-none">
-              Eval Sentinel
-            </h1>
-            <p className="text-zinc-500 text-xs mt-1 font-mono">{state.dataset}</p>
-          </div>
+          <p className="text-zinc-400 text-sm mt-3">{headline}</p>
         </div>
 
-        <div
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium ${pill.cls}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${pill.dot}`} />
-          {pill.glyph && <span className="text-sm leading-none">{pill.glyph}</span>}
-          {pill.label}
-        </div>
-      </div>
-
-      <div className="mt-4 flex items-baseline gap-3">
-        <span className="text-zinc-500 text-xs uppercase tracking-wide">
-          Overall
-        </span>
-        <span className="font-mono text-3xl font-semibold text-zinc-100 tabular-nums">
-          {overall}%
-        </span>
-        {delta !== 0 && (
-          <span
-            className={`font-mono text-sm font-medium ${
-              delta < 0 ? 'text-regress' : 'text-ok'
-            }`}
-          >
-            {delta < 0 ? '▼' : '▲'} {delta > 0 ? '+' : ''}
-            {delta}
+        <div className="text-right hidden sm:block">
+          <div className="label mb-2.5">Baseline</div>
+          <span className="font-mono text-xl text-zinc-500 tabular-nums">
+            {state.baseline.overall}%
           </span>
-        )}
-        {delta === 0 && runState === 'healed' && (
-          <span className="font-mono text-sm text-ok">restored</span>
-        )}
+        </div>
       </div>
     </header>
+  );
+}
+
+function DeltaPill({ delta, runState }: { delta: number; runState: RunState }) {
+  if (delta === 0) {
+    if (runState === 'healed') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full border border-ok/30 bg-ok/[0.08] px-2 py-0.5 font-mono text-xs font-medium text-ok">
+          <Check /> restored
+        </span>
+      );
+    }
+    return null;
+  }
+  const down = delta < 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs font-medium tabular-nums ${
+        down
+          ? 'border border-regress/30 bg-regress/[0.08] text-regress'
+          : 'border border-ok/30 bg-ok/[0.08] text-ok'
+      }`}
+    >
+      {down ? <Arrow down /> : <Arrow />}
+      {delta > 0 ? '+' : ''}
+      {delta}
+    </span>
+  );
+}
+
+function Arrow({ down }: { down?: boolean }) {
+  return (
+    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+      <path
+        d={down ? 'M5 1.5V8.5M5 8.5L2 5.5M5 8.5L8 5.5' : 'M5 8.5V1.5M5 1.5L2 4.5M5 1.5L8 4.5'}
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Check() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+      <path
+        d="M1.5 5.5L4 8L8.5 2.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

@@ -11,25 +11,44 @@ interface Props {
   events: SentinelEvent[];
 }
 
-const PHASE_META: Record<Phase, { glyph: string; cls: string }> = {
-  detect: { glyph: '◎', cls: 'text-regress border-regress/40' },
-  root_cause: { glyph: '⌕', cls: 'text-progress border-progress/40' },
-  propose: { glyph: '✎', cls: 'text-accent border-accent/40' },
-  verify: { glyph: '↻', cls: 'text-progress border-progress/40' },
-  approval: { glyph: '⏸', cls: 'text-accent border-accent/40' },
-  report: { glyph: '▤', cls: 'text-ok border-ok/40' },
+type Sem = 'regress' | 'progress' | 'accent' | 'ok';
+
+const PHASE_META: Record<Phase, { sem: Sem; glyph: React.ReactNode }> = {
+  detect: { sem: 'regress', glyph: <IconSearch /> },
+  root_cause: { sem: 'progress', glyph: <IconBranch /> },
+  propose: { sem: 'accent', glyph: <IconPencil /> },
+  verify: { sem: 'progress', glyph: <IconRefresh /> },
+  approval: { sem: 'accent', glyph: <IconPause /> },
+  report: { sem: 'ok', glyph: <IconDoc /> },
+};
+
+const SEM_TEXT: Record<Sem, string> = {
+  regress: 'text-regress',
+  progress: 'text-progress',
+  accent: 'text-accent-bright',
+  ok: 'text-ok',
+};
+const SEM_DOT: Record<Sem, string> = {
+  regress: 'bg-regress',
+  progress: 'bg-progress',
+  accent: 'bg-accent',
+  ok: 'bg-ok',
 };
 
 export function RunTimeline({ events }: Props) {
-  // Skip approval_gate + done here (handled elsewhere / terminal).
   const nodes = events.filter(
     (e) => e.type !== 'approval_gate' && e.type !== 'done',
   );
 
   if (nodes.length === 0) {
     return (
-      <div className="text-zinc-600 text-sm py-10 text-center border border-dashed border-zinc-800 rounded-md font-mono">
-        timeline empty — run Eval Sentinel to stream the incident
+      <div className="flex flex-col items-center justify-center py-14 text-center">
+        <div className="text-zinc-700 mb-3">
+          <IconWaveform />
+        </div>
+        <p className="text-zinc-500 text-sm">
+          No incident yet. Run Eval Sentinel to stream the investigation.
+        </p>
       </div>
     );
   }
@@ -37,9 +56,13 @@ export function RunTimeline({ events }: Props) {
   return (
     <ol className="relative">
       {/* spine */}
-      <div className="absolute left-[7px] top-1 bottom-1 w-px bg-zinc-800" />
+      <div className="absolute left-[8px] top-2 bottom-2 w-px bg-hairline" />
       {nodes.map((e, i) => (
-        <li key={i} className="relative pl-7 pb-4 last:pb-0 animate-nodeIn">
+        <li
+          key={i}
+          className="relative pl-8 pb-5 last:pb-0 animate-nodeIn"
+          style={{ animationDelay: `${Math.min(i, 8) * 20}ms` }}
+        >
           <Dot event={e} />
           <Node event={e} />
         </li>
@@ -49,18 +72,24 @@ export function RunTimeline({ events }: Props) {
 }
 
 function Dot({ event }: { event: SentinelEvent }) {
-  let cls = 'bg-zinc-700 border-zinc-600';
   if (event.type === 'phase') {
-    cls = PHASE_META[event.phase].cls.replace('text-', 'bg-').replace(/\/40/, '') + ' border-bg';
-  } else if (event.type === 'plan') {
-    cls = 'bg-accent border-bg';
-  } else if (event.type === 'report') {
-    cls = 'bg-ok border-bg';
+    const sem = PHASE_META[event.phase].sem;
+    return (
+      <span
+        className={`absolute left-0 top-0 grid h-[17px] w-[17px] place-items-center rounded-full border border-hairline bg-elevated ${SEM_TEXT[sem]}`}
+      >
+        <span className="scale-[0.62]">{PHASE_META[event.phase].glyph}</span>
+      </span>
+    );
   }
+  let cls = 'bg-zinc-700';
+  if (event.type === 'plan') cls = 'bg-accent';
+  else if (event.type === 'report') cls = 'bg-ok';
+  else if (event.type === 'proposed_prompt') cls = 'bg-accent';
   return (
-    <span
-      className={`absolute left-0 top-1 h-[15px] w-[15px] rounded-full border-2 ${cls}`}
-    />
+    <span className="absolute left-[5px] top-[5px] grid place-items-center">
+      <span className={`h-1.5 w-1.5 rounded-full ${cls}`} />
+    </span>
   );
 }
 
@@ -68,33 +97,26 @@ function Node({ event }: { event: SentinelEvent }) {
   switch (event.type) {
     case 'plan':
       return (
-        <Card label="PLAN" labelCls="text-accent">
+        <Card label="Plan" sem="accent">
           <Markdown text={event.text} />
         </Card>
       );
 
     case 'phase': {
-      const meta = PHASE_META[event.phase];
       return (
-        <div className="flex items-center gap-2 py-0.5">
-          <span className={`font-mono text-sm ${meta.cls.split(' ')[0]}`}>
-            {meta.glyph}
-          </span>
-          <span className="text-zinc-200 text-sm font-medium">{event.label}</span>
-          <span className="font-mono text-2xs text-zinc-600 uppercase">
-            {event.phase}
-          </span>
+        <div className="flex items-center gap-2.5 py-0.5">
+          <span className="text-ink text-sm font-medium">{event.label}</span>
+          <span className="label text-[#3F3F46]">{event.phase}</span>
         </div>
       );
     }
 
     case 'tool_call':
       return (
-        <div className="font-mono text-xs text-zinc-500 py-0.5">
-          <span className="text-accent/80">→ {event.name}</span>
+        <div className="font-mono text-xs py-0.5 flex items-baseline gap-2 flex-wrap">
+          <span className="text-accent-bright/90">{event.name}</span>
           {event.args != null && (
-            <span className="text-zinc-600">
-              {' '}
+            <span className="text-zinc-600 truncate">
               {truncate(JSON.stringify(event.args), 90)}
             </span>
           )}
@@ -113,16 +135,14 @@ function Node({ event }: { event: SentinelEvent }) {
 
     case 'proposed_prompt':
       return (
-        <Card label="PROPOSED PROMPT" labelCls="text-accent">
-          <pre className="font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
-            {event.text}
-          </pre>
+        <Card label="Proposed prompt" sem="accent">
+          <CodeBlock text={event.text} />
         </Card>
       );
 
     case 'report':
       return (
-        <Card label="POSTMORTEM" labelCls="text-ok">
+        <Card label="Postmortem" sem="ok">
           <Markdown text={event.text} />
         </Card>
       );
@@ -142,9 +162,9 @@ function ToolResult({
 
   if (event.kind === 'regression') {
     return (
-      <Card label="REGRESSION" labelCls="text-regress">
+      <Card label="Regression" sem="regress">
         <Table
-          head={['category', 'baseline', 'current', '']}
+          head={['category', 'baseline', 'current', 'Δ']}
           rows={(rows as RegressionRow[]).map((r) => {
             const drop = r.current < r.baseline;
             return [
@@ -155,7 +175,13 @@ function ToolResult({
               >
                 {r.current}%
               </span>,
-              drop ? <span className="text-regress">▼ {r.current - r.baseline}</span> : <span />,
+              drop ? (
+                <span className="text-regress tabular-nums">
+                  {r.current - r.baseline}
+                </span>
+              ) : (
+                <span className="text-zinc-700">—</span>
+              ),
             ];
           })}
         />
@@ -165,13 +191,15 @@ function ToolResult({
 
   if (event.kind === 'failures') {
     return (
-      <Card label="FAILING EXAMPLES" labelCls="text-regress">
+      <Card label="Failing examples" sem="regress">
         <Table
           head={['command', 'expected', 'predicted']}
           rows={(rows as FailureRow[]).map((r) => [
             <span className="text-zinc-300">"{r.command}"</span>,
-            <span className="text-ok/80">{r.expected}</span>,
-            <span className="text-regress">{r.predicted}</span>,
+            <span className="text-ok">{r.expected}</span>,
+            <span className="text-regress inline-flex items-center gap-1">
+              <IconArrowMini /> {r.predicted}
+            </span>,
           ])}
         />
       </Card>
@@ -180,9 +208,9 @@ function ToolResult({
 
   // recovery
   return (
-    <Card label="VERIFIED RECOVERY" labelCls="text-ok">
+    <Card label="Verified recovery" sem="ok">
       <Table
-        head={['category', 'before', 'after', '']}
+        head={['category', 'before', 'after', 'Δ']}
         rows={(rows as RecoveryRow[]).map((r) => {
           const up = r.healed > r.current;
           return [
@@ -191,7 +219,11 @@ function ToolResult({
             <span className={`tabular-nums ${up ? 'text-ok' : 'text-zinc-300'}`}>
               {r.healed}%
             </span>,
-            up ? <span className="text-ok">▲ +{r.healed - r.current}</span> : <span />,
+            up ? (
+              <span className="text-ok tabular-nums">+{r.healed - r.current}</span>
+            ) : (
+              <span className="text-zinc-700">—</span>
+            ),
           ];
         })}
       />
@@ -201,20 +233,29 @@ function ToolResult({
 
 function Card({
   label,
-  labelCls,
+  sem,
   children,
 }: {
   label: string;
-  labelCls: string;
+  sem: Sem;
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-md border border-zinc-800 bg-panel p-3 mt-0.5">
-      <div className={`font-mono text-2xs tracking-wider mb-2 ${labelCls}`}>
-        {label}
+    <div className="rounded-lg border border-hairline bg-bg/60 p-3.5 mt-1">
+      <div className="flex items-center gap-2 mb-2.5">
+        <span className={`h-1.5 w-1.5 rounded-full ${SEM_DOT[sem]}`} />
+        <span className="label text-zinc-400">{label}</span>
       </div>
       {children}
     </div>
+  );
+}
+
+function CodeBlock({ text }: { text: string }) {
+  return (
+    <pre className="font-mono text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed bg-[#070709] border border-hairline rounded-md p-3 overflow-x-auto">
+      {text}
+    </pre>
   );
 }
 
@@ -228,9 +269,12 @@ function Table({
   return (
     <table className="w-full font-mono text-xs">
       <thead>
-        <tr className="text-zinc-600 text-left">
+        <tr className="text-left">
           {head.map((h, i) => (
-            <th key={i} className="font-normal pb-1.5 pr-3 last:pr-0 uppercase text-2xs">
+            <th
+              key={i}
+              className="label font-normal pb-2 pr-4 last:pr-0 text-[#52525B]"
+            >
               {h}
             </th>
           ))}
@@ -238,9 +282,9 @@ function Table({
       </thead>
       <tbody>
         {rows.map((cells, ri) => (
-          <tr key={ri} className="border-t border-zinc-800/60">
+          <tr key={ri} className="border-t border-hairline/70">
             {cells.map((c, ci) => (
-              <td key={ci} className="py-1.5 pr-3 last:pr-0 align-top">
+              <td key={ci} className="py-2 pr-4 last:pr-0 align-top">
                 {c}
               </td>
             ))}
@@ -253,4 +297,74 @@ function Table({
 
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
+}
+
+/* ---- glyphs (small, functional) ---- */
+function IconSearch() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="6" cy="6" r="4" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M9 9L12 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconBranch() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="4" cy="3.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="4" cy="10.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="10" cy="3.5" r="1.6" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 5v4M5.6 3.5H8.4M10 5v1.5c0 2-2 2-3.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconPencil() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M9.5 2.5L11.5 4.5L5 11L2.5 11.5L3 9L9.5 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconRefresh() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M11.5 6A4.5 4.5 0 1 1 10 3.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M10.5 1.5V3.5H8.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconPause() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M5 3.5V10.5M9 3.5V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconDoc() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M3.5 2.5H8L10.5 5V11.5H3.5V2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M5.5 7H8.5M5.5 9H8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconArrowMini() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+      <path d="M2 5H8M8 5L5.5 2.5M8 5L5.5 7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconWaveform() {
+  return (
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+      <path
+        d="M3 15H7L10 8L14 22L18 11L21 18L24 15H27"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }

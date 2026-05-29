@@ -13,14 +13,27 @@ body,
 }
 
 body {
+  overflow-x: hidden;
+}
+
+body {
   margin: 0;
   background-color: theme('colors.bg');
-  color: #e6e6e9;
+  /* Subtle vignette so the page isn't a flat void — barely perceptible. */
+  background-image: radial-gradient(
+    120% 80% at 50% -10%,
+    rgba(99, 102, 241, 0.05),
+    transparent 60%
+  );
+  background-attachment: fixed;
+  color: theme('colors.ink');
+  font-family: theme('fontFamily.sans');
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* Tight, dense scrollbars in the timeline */
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -29,17 +42,32 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #26262d;
   border-radius: 4px;
 }
 *::-webkit-scrollbar-thumb:hover {
   background: #3f3f46;
 }
 
+@layer components {
+  /* Section label — 11px uppercase, wide tracking, zinc-500. */
+  .label {
+    @apply font-mono text-[0.6875rem] uppercase tracking-label text-[#71717A];
+  }
+
+  /* Panel — surface with hairline border + a 1px top highlight for depth. */
+  .panel {
+    @apply rounded-xl border border-hairline bg-panel;
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
+      0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  }
+}
+
 @layer utilities {
-  /* Bar fill transition (regressed -> healed) */
   .bar-fill {
-    transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transition:
+      width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
       background-color 0.5s ease;
   }
 }

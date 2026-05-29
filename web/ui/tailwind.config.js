@@ -4,16 +4,22 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Near-black ops-console surface scale
-        bg: '#0a0a0b',
-        panel: '#0e0e10',
-        elevated: '#141417',
-        // Single restrained accent (cool slate-cyan, not neon)
-        accent: '#5e9eff',
-        // Semantic
-        ok: '#3fb950',
-        regress: '#f85149',
-        progress: '#d29922',
+        // Layered dark surface scale — not flat black.
+        bg: '#08080A',
+        panel: '#0E0E12',
+        elevated: '#16161B',
+        hairline: '#1C1C22',
+        // Text
+        ink: '#FAFAFA',
+        // Single refined indigo accent — interactive / live.
+        accent: '#6366F1',
+        'accent-bright': '#818CF8',
+        // Semantic, muted.
+        ok: '#34D399',
+        'ok-deep': '#10B981',
+        regress: '#FB7185',
+        'regress-deep': '#F43F5E',
+        progress: '#F59E0B',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
@@ -22,19 +28,31 @@ export default {
       fontSize: {
         '2xs': ['0.6875rem', { lineHeight: '1rem' }],
       },
+      letterSpacing: {
+        label: '0.08em',
+      },
       keyframes: {
         nodeIn: {
-          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         pulseSoft: {
           '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.45' },
+          '50%': { opacity: '0.4' },
+        },
+        livePulse: {
+          '0%': { transform: 'scale(1)', opacity: '0.55' },
+          '70%, 100%': { transform: 'scale(2.4)', opacity: '0' },
+        },
+        spinSlow: {
+          to: { transform: 'rotate(360deg)' },
         },
       },
       animation: {
-        nodeIn: 'nodeIn 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-        pulseSoft: 'pulseSoft 1.4s ease-in-out infinite',
+        nodeIn: 'nodeIn 0.34s cubic-bezier(0.16, 1, 0.3, 1) both',
+        pulseSoft: 'pulseSoft 1.6s ease-in-out infinite',
+        livePulse: 'livePulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite',
+        spinSlow: 'spinSlow 0.7s linear infinite',
       },
     },
   },

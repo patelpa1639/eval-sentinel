@@ -8,41 +8,60 @@ interface Props {
 
 export function RunButton({ runState, running, onRun }: Props) {
   const done = runState === 'healed';
+
+  if (running) {
+    return (
+      <button
+        disabled
+        className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-elevated px-4 py-2 text-sm font-medium text-zinc-300 cursor-default"
+      >
+        <Spinner />
+        Running Eval Sentinel…
+      </button>
+    );
+  }
+
+  if (done) {
+    return (
+      <button
+        disabled
+        className="inline-flex items-center gap-2 rounded-lg border border-ok/30 bg-ok/[0.08] px-4 py-2 text-sm font-medium text-ok cursor-default"
+      >
+        <Check />
+        Run complete
+      </button>
+    );
+  }
+
   return (
     <button
       onClick={onRun}
-      disabled={running || done}
-      className={`group inline-flex items-center gap-2 rounded-md border px-3.5 py-2 text-sm font-medium transition-colors
-        ${
-          running
-            ? 'border-progress/40 text-progress bg-progress/5 cursor-default'
-            : done
-              ? 'border-ok/40 text-ok bg-ok/5 cursor-default'
-              : 'border-accent/40 text-accent bg-accent/5 hover:bg-accent/10 active:bg-accent/15'
-        }`}
+      className="group inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12)] transition-colors hover:bg-accent-bright active:bg-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-bright focus-visible:ring-offset-2 focus-visible:ring-offset-panel"
     >
-      {running ? (
-        <>
-          <Spinner />
-          Running Eval Sentinel…
-        </>
-      ) : done ? (
-        <>
-          <span>✓</span>
-          Run complete
-        </>
-      ) : (
-        <>
-          <span className="text-[0.7rem]">▶</span>
-          Run Eval Sentinel
-        </>
-      )}
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor" aria-hidden>
+        <path d="M3 2.2L10 6L3 9.8V2.2Z" />
+      </svg>
+      Run Eval Sentinel
     </button>
   );
 }
 
 function Spinner() {
   return (
-    <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-progress/30 border-t-progress animate-spin" />
+    <span className="inline-block h-3.5 w-3.5 rounded-full border-2 border-zinc-600 border-t-accent-bright animate-spinSlow" />
+  );
+}
+
+function Check() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+      <path
+        d="M2 6.5L5 9.5L10 3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
