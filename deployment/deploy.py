@@ -245,7 +245,7 @@ def deploy() -> int:
 
     print("Deploying to Agent Engine (this takes several minutes) ...")
     agent_engine = client.agent_engines.create(
-        agent_engine=app,
+        agent=app,
         config=AgentEngineConfig(
             display_name=DISPLAY_NAME,
             description=DESCRIPTION,
