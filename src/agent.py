@@ -15,6 +15,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Gemini 3 models resolve ONLY in the 'global' Vertex location. When deployed to
+# Agent Engine, the runtime injects GOOGLE_CLOUD_LOCATION = the deploy region
+# (e.g. us-central1), which 404s for Gemini 3 — so pin the model endpoint to
+# 'global' in-process here. Harmless locally (already 'global' in .env).
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "TRUE"
+os.environ["GOOGLE_CLOUD_LOCATION"] = "global"
+
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 
 # --- ADK agent + Arize Phoenix MCP (google-adk 2.1.0) ---
@@ -98,9 +105,25 @@ Prefer your FunctionTools (detect_regression, get_failing_examples, verify_fix)
 for the core loop. The Phoenix MCP tools are available for any additional
 read-only investigation you need."""
 
+# Gemini 3 only resolves in the 'global' Vertex location, but Agent Engine's
+# runtime region (us-central1) is used by default and 404s for Gemini 3. Setting
+# the env var isn't enough — ADK builds its own genai Client — so pin the model's
+# client to the global endpoint via ADK's documented api_client override.
+from functools import cached_property
+
+from google.adk.models import Gemini
+from google.genai import Client as _GenAIClient
+
+
+class _GlobalGemini(Gemini):
+    @cached_property
+    def api_client(self) -> _GenAIClient:
+        return _GenAIClient(vertexai=True, location="global")
+
+
 root_agent = Agent(
     name="eval_sentinel",
-    model=GEMINI_MODEL,
+    model=_GlobalGemini(model=GEMINI_MODEL),
     instruction=INSTRUCTION,
     tools=[phoenix_tools, *EVAL_SENTINEL_TOOLS],
 )

@@ -82,7 +82,7 @@ REQUIREMENTS = [
 # Ship the local `src/` package as extra source so `from src.agent import
 # root_agent` resolves inside the deployed runtime. We also ship the
 # `installation_scripts/` dir (build-time Node install — see below).
-EXTRA_PACKAGES = ["src", "installation_scripts"]
+EXTRA_PACKAGES = ["src", "installation_scripts/install_node.sh"]
 
 # Build-time installation scripts (run as root during image build). The Phoenix
 # MCP server launches via `npx`, which needs Node.js; install_node.sh installs
@@ -110,13 +110,11 @@ def _redact(key: str, value: str) -> str:
 
 
 def _collect_env_vars() -> dict[str, str]:
-    env_vars = {
-        # Agent Engine needs Vertex AI mode on for Gemini calls.
-        "GOOGLE_GENAI_USE_VERTEXAI": os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "TRUE"),
-        # Gemini model itself runs in 'global'; keep that explicit at runtime.
-        "GOOGLE_CLOUD_LOCATION": os.environ.get("GOOGLE_CLOUD_LOCATION", "global"),
-        "GOOGLE_CLOUD_PROJECT": PROJECT_ID,
-    }
+    # NOTE: GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION are RESERVED by Agent
+    # Engine (the runtime injects them), so we must NOT pass them here. The agent
+    # pins the Gemini endpoint to 'global' in-process (see src/agent.py) because
+    # the runtime's region (us-central1) would otherwise 404 for Gemini 3.
+    env_vars: dict[str, str] = {}
     for key in _FORWARDED_ENV_KEYS:
         val = os.environ.get(key)
         if val:
@@ -241,7 +239,10 @@ def deploy() -> int:
     from src.agent import root_agent
 
     client = vertexai.Client(project=PROJECT_ID, location=AGENT_ENGINE_LOCATION)
-    app = AdkApp(agent=root_agent, enable_tracing=True)
+    # Pin a valid ADK app name. Agent Engine otherwise names the app after the
+    # numeric resource id, which ADK 2.1.0's App validator rejects (names must
+    # start with a letter), crashing container startup.
+    app = AdkApp(agent=root_agent, app_name="eval_sentinel", enable_tracing=True)
 
     print("Deploying to Agent Engine (this takes several minutes) ...")
     agent_engine = client.agent_engines.create(
