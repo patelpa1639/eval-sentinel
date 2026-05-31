@@ -168,6 +168,46 @@ Return only the category name.`,
   { type: 'done' },
 ];
 
+// --- Mock-only dashboard enrichment (no backend equivalent) -----------------
+// Used to populate the KPI tiles and the "Accuracy over runs" trend chart in
+// mock mode. In live mode the chart is built honestly from /api/state only.
+
+export interface TrendPoint {
+  run: number;
+  label: string;
+  accuracy: number;
+  marker?: 'dip' | 'recovery';
+}
+
+// A plausible run history: a long healthy stretch, the regression dip at run 11
+// (84), and the verified recovery at run 12 (100).
+export const MOCK_TREND: TrendPoint[] = [
+  { run: 1, label: 'run 1', accuracy: 100 },
+  { run: 2, label: 'run 2', accuracy: 100 },
+  { run: 3, label: 'run 3', accuracy: 98 },
+  { run: 4, label: 'run 4', accuracy: 100 },
+  { run: 5, label: 'run 5', accuracy: 100 },
+  { run: 6, label: 'run 6', accuracy: 99 },
+  { run: 7, label: 'run 7', accuracy: 100 },
+  { run: 8, label: 'run 8', accuracy: 100 },
+  { run: 9, label: 'run 9', accuracy: 100 },
+  { run: 10, label: 'run 10', accuracy: 100 },
+  { run: 11, label: 'run 11', accuracy: 84, marker: 'dip' },
+  { run: 12, label: 'run 12', accuracy: 100, marker: 'recovery' },
+];
+
+export const MOCK_METRICS = {
+  evalRuns: 12,
+  meanTimeToHeal: '1m 48s',
+  // tiny sparkline series for each KPI tile
+  spark: {
+    accuracy: [100, 100, 98, 100, 100, 99, 100, 100, 100, 100, 84, 100],
+    regressed: [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 2, 0],
+    runs: [4, 5, 6, 6, 7, 8, 9, 10, 10, 11, 11, 12],
+    heal: [132, 128, 140, 121, 118, 124, 116, 120, 109, 114, 112, 108],
+  },
+};
+
 export const MOCK_APPROVE: Record<'approve' | 'reject', ApproveResponse> = {
   approve: {
     ok: true,

@@ -129,7 +129,7 @@ export function CategoryBars({ state, runState, healedCategories }: Props) {
         return (
           <div
             key={cat}
-            className="grid grid-cols-[3.75rem_1fr_auto] sm:grid-cols-[4.5rem_1fr_auto] items-center gap-3 sm:gap-4"
+            className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-2.5 sm:gap-4"
           >
             <span
               className={`font-mono text-xs ${

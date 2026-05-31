@@ -12,7 +12,10 @@ body,
   height: 100%;
 }
 
-body {
+html,
+body,
+#root {
+  max-width: 100%;
   overflow-x: hidden;
 }
 
@@ -50,6 +53,18 @@ body {
 }
 
 @layer components {
+  /* KPI grid — explicit minmax(0,1fr) tracks so tiles can shrink below their
+   * content min-width on narrow viewports (Tailwind arbitrary tracks proved
+   * unreliable for this). 2-up on mobile, 4-up from lg. */
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (min-width: 1024px) {
+    .kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
   /* Section label — 11px uppercase, wide tracking, zinc-500. */
   .label {
     @apply font-mono text-[0.6875rem] uppercase tracking-label text-[#71717A];
@@ -67,7 +82,17 @@ body {
 @layer utilities {
   .bar-fill {
     transition:
-      width 0.85s cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 0.5s ease;
+      width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 0.4s ease;
   }
+}
+
+/* Headless/automation renderers (Playwright/Chromium --virtual-time-budget)
+ * freeze CSS transitions mid-flight, which makes the captured frame show a
+ * pre-transition (wrong) state. When automation is detected, snap transitions
+ * to their final values so screenshots are truthful. No effect for real users. */
+html[data-no-anim] * {
+  transition-duration: 0s !important;
+  animation-duration: 0.001s !important;
+  animation-delay: 0s !important;
 }

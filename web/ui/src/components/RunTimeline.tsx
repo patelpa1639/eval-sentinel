@@ -42,12 +42,15 @@ export function RunTimeline({ events }: Props) {
 
   if (nodes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-14 text-center">
+      <div className="flex flex-col items-center justify-center py-9 text-center">
         <div className="text-zinc-700 mb-3">
           <IconWaveform />
         </div>
         <p className="text-zinc-500 text-sm">
           No incident yet. Run Eval Sentinel to stream the investigation.
+        </p>
+        <p className="text-zinc-600 text-xs mt-1.5 font-mono">
+          detect · root-cause · propose · verify · approve
         </p>
       </div>
     );
